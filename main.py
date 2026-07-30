@@ -18,6 +18,7 @@ def do_train(args):
         save_every=args.save_every,
         save_path=args.save,
         seed=args.seed,
+        fps=args.fps,
     )
 
 
@@ -29,9 +30,10 @@ def do_watch(args):
         sys.exit(1)
 
     print("watching ai vs ai - ctrl+c to quit")
+    speed_mult = args.fps / 25.0
     try:
         while True:
-            g = Pong()
+            g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
             while not g.done:
                 s = g.get_state(for_player=2)
                 a2 = brain_action(brain, s)
@@ -57,7 +59,8 @@ def do_play(args):
         print("play mode needs windows (msvcrt). try 'watch' instead")
         sys.exit(1)
 
-    g = Pong()
+    speed_mult = args.fps / 25.0
+    g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
     print("you are player 1 (left). w=up  s=down  q=quit")
     time.sleep(1)
 
@@ -89,13 +92,23 @@ def do_demo(args):
     if brain is None:
         print(f"cant load brain from '{args.load}'")
         sys.exit(1)
-    hits, s1, s2 = demo_game(brain)
+    hits, s1, s2 = demo_game(brain, getattr(args, 'fps', 25.0))
     print(f"demo: {hits} hits, score {s1}-{s2}")
 
 
 def interactive_menu():
     import argparse
+    import json
+    import os
+    
     current_fps = 25.0
+    if os.path.exists('settings.json'):
+        try:
+            with open('settings.json', 'r') as f:
+                current_fps = json.load(f).get('fps', 25.0)
+        except:
+            pass
+
     while True:
         print("\n=======================")
         print("       PONG AI         ")
@@ -117,6 +130,7 @@ def interactive_menu():
             sp.add_argument("--save-every", type=int, default=10)
             sp.add_argument("--save", default="best_brain.json")
             sp.add_argument("--seed", type=int, default=None)
+            sp.add_argument("--fps", type=float, default=current_fps)
             do_train(sp.parse_args([]))
         elif choice == '2':
             sp = argparse.ArgumentParser()
@@ -131,6 +145,7 @@ def interactive_menu():
         elif choice == '4':
             sp = argparse.ArgumentParser()
             sp.add_argument("--load", default="best_brain.json")
+            sp.add_argument("--fps", type=float, default=current_fps)
             do_demo(sp.parse_args([]))
         elif choice == '5':
             print(f"\nCurrent Game Speed (FPS): {current_fps}")
@@ -138,7 +153,9 @@ def interactive_menu():
                 new_fps = float(input("Enter new game speed (e.g., 25 for normal, 60 for fast): "))
                 if new_fps > 0:
                     current_fps = new_fps
-                    print(f"Speed updated to {current_fps} FPS.")
+                    with open('settings.json', 'w') as f:
+                        json.dump({'fps': current_fps}, f)
+                    print(f"Speed updated to {current_fps} FPS and saved.")
                 else:
                     print("Speed must be greater than 0.")
             except ValueError:
@@ -166,6 +183,7 @@ def main():
         sp.add_argument("--save-every", type=int, default=10)
         sp.add_argument("--save", default="best_brain.json")
         sp.add_argument("--seed", type=int, default=None)
+        sp.add_argument("--fps", type=float, default=25.0)
         do_train(sp.parse_args(rest))
 
     elif cmd == "watch":
@@ -183,6 +201,7 @@ def main():
     elif cmd == "demo":
         sp = argparse.ArgumentParser()
         sp.add_argument("--load", default="best_brain.json")
+        sp.add_argument("--fps", type=float, default=25.0)
         do_demo(sp.parse_args(rest))
 
     else:

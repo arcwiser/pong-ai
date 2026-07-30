@@ -34,10 +34,11 @@ def brain_action(brain, state):
 
 
 # play n games and return avg fitness
-def evaluate(brain, n_games):
+def evaluate(brain, n_games, fps=25.0):
+    speed_mult = fps / 25.0
     total = 0
     for _ in range(n_games):
-        g = Pong()
+        g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
         while not g.done and g.steps < MAX_STEPS:
             s = g.get_state(for_player=2)
             a2 = brain_action(brain, s)
@@ -50,8 +51,8 @@ def evaluate(brain, n_games):
 
 # worker for multiprocessing
 def eval_worker(args):
-    brain, n_games = args
-    return evaluate(brain, n_games)
+    brain, n_games, fps = args
+    return evaluate(brain, n_games, fps)
 
 
 # tournament selection: pick k random, return index of best
@@ -100,8 +101,9 @@ def load_brain(path="best_brain.json"):
 
 
 # run 1 quick game and return stats (no rendering)
-def demo_game(brain):
-    g = Pong()
+def demo_game(brain, fps=25.0):
+    speed_mult = fps / 25.0
+    g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
     while not g.done and g.steps < 300:
         s = g.get_state(for_player=2)
         a2 = brain_action(brain, s)
@@ -113,7 +115,7 @@ def demo_game(brain):
 # main training loop - runs forever until ctrl+c
 def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
                      show_every=5, save_every=10, save_path="best_brain.json",
-                     seed=None):
+                     seed=None, fps=25.0):
     if seed is not None:
         random.seed(seed)
 
@@ -151,7 +153,7 @@ def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
                 fits = []
 
                 # evaluate every individual in the population using multiprocessing
-                tasks = [(brain, gpe) for brain in pop]
+                tasks = [(brain, gpe, fps) for brain in pop]
                 for i, f in enumerate(pool.imap(eval_worker, tasks)):
                     fits.append(f)
 
@@ -176,7 +178,7 @@ def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
 
                 # show a quick demo game so you can see how its doing
                 if gen % show_every == 0 and best_brain is not None:
-                    hits, s1, s2 = demo_game(best_brain)
+                    hits, s1, s2 = demo_game(best_brain, fps)
                     sys.stdout.write(f"  demo: {hits} hits ({s1}-{s2})")
                 sys.stdout.write("\n")
 
