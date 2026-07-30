@@ -153,7 +153,8 @@ def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
 
                 # evaluate every individual in the population using multiprocessing
                 tasks = [(brain, gpe, fps) for brain in pop]
-                for i, f in enumerate(pool.imap(eval_worker, tasks)):
+                chunk_size = max(1, len(tasks) // multiprocessing.cpu_count())
+                for i, f in enumerate(pool.imap(eval_worker, tasks, chunksize=chunk_size)):
                     fits.append(f)
 
                     # progress bar
