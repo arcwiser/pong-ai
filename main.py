@@ -231,23 +231,39 @@ def interactive_menu():
         elif choice == '5':
             # list available brains
             brain_files = [f for f in os.listdir('.') if f.endswith('.json') and f != 'settings.json']
-            if len(brain_files) < 2:
-                print(f"\nYou need at least 2 trained brains to fight!")
-                print(f"Found: {brain_files if brain_files else 'none'}")
-                print("Train more models first (option 1) with different save names.")
+
+            if brain_files:
+                print("\nAvailable brains:")
+                for i, f in enumerate(brain_files, 1):
+                    print(f"  {i}. {f}")
+            else:
+                print("\nNo brains found in current directory.")
+
+            print("\nEnter a number from the list above, or type/paste a file path.")
+            p1 = input("Brain 1: ").strip()
+            p2 = input("Brain 2: ").strip()
+
+            # resolve: if it's a number, grab from list. otherwise treat as path.
+            def resolve_brain(val):
+                try:
+                    idx = int(val) - 1
+                    if 0 <= idx < len(brain_files):
+                        return brain_files[idx]
+                except ValueError:
+                    pass
+                # treat as file path
+                if not val.endswith(".json"):
+                    val += ".json"
+                return val
+
+            b1 = resolve_brain(p1)
+            b2 = resolve_brain(p2)
+
+            if not os.path.exists(b1):
+                print(f"File not found: {b1}")
                 continue
-
-            print("\nAvailable brains:")
-            for i, f in enumerate(brain_files, 1):
-                print(f"  {i}. {f}")
-
-            try:
-                p1 = input(f"Pick brain 1 (1-{len(brain_files)}): ").strip()
-                p2 = input(f"Pick brain 2 (1-{len(brain_files)}): ").strip()
-                b1 = brain_files[int(p1) - 1]
-                b2 = brain_files[int(p2) - 1]
-            except (ValueError, IndexError):
-                print("Invalid selection.")
+            if not os.path.exists(b2):
+                print(f"File not found: {b2}")
                 continue
 
             try:
