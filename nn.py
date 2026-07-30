@@ -23,66 +23,53 @@ class Matrix:
         return Matrix(self.rows, self.cols, [row[:] for row in self.data])
 
     def randomize(self, scale=1.0):
-        for i in range(self.rows):
-            for j in range(self.cols):
-                self.data[i][j] = random.uniform(-scale, scale)
+        self.data = [
+            [random.uniform(-scale, scale) for _ in range(self.cols)]
+            for _ in range(self.rows)
+        ]
 
     # matrix multiplication
     def __matmul__(self, other):
-        result = Matrix(self.rows, other.cols)
-        for i in range(self.rows):
-            for j in range(other.cols):
-                s = 0.0
-                for k in range(self.cols):
-                    s += self.data[i][k] * other.data[k][j]
-                result.data[i][j] = s
-        return result
+        other_t = list(zip(*other.data))
+        return Matrix(self.rows, other.cols, [
+            [sum(a * b for a, b in zip(row, col)) for col in other_t]
+            for row in self.data
+        ])
 
     # add two matrices (or add scalar)
     def __add__(self, other):
         if isinstance(other, Matrix):
-            result = Matrix(self.rows, self.cols)
-            for i in range(self.rows):
-                for j in range(self.cols):
-                    result.data[i][j] = self.data[i][j] + other.data[i][j]
-            return result
-        result = self.copy()
-        for i in range(self.rows):
-            for j in range(self.cols):
-                result.data[i][j] += other
-        return result
+            return Matrix(self.rows, self.cols, [
+                [a + b for a, b in zip(row1, row2)]
+                for row1, row2 in zip(self.data, other.data)
+            ])
+        return Matrix(self.rows, self.cols, [
+            [a + other for a in row]
+            for row in self.data
+        ])
 
     def __mul__(self, scalar):
-        result = self.copy()
-        for i in range(self.rows):
-            for j in range(self.cols):
-                result.data[i][j] *= scalar
-        return result
+        return Matrix(self.rows, self.cols, [
+            [a * scalar for a in row]
+            for row in self.data
+        ])
 
     # apply a function to every element
     def apply(self, fn):
-        result = self.copy()
-        for i in range(self.rows):
-            for j in range(self.cols):
-                result.data[i][j] = fn(self.data[i][j])
-        return result
+        return Matrix(self.rows, self.cols, [
+            [fn(a) for a in row]
+            for row in self.data
+        ])
 
     def flatten(self):
-        flat = []
-        for i in range(self.rows):
-            for j in range(self.cols):
-                flat.append(self.data[i][j])
-        return flat
+        return [item for row in self.data for item in row]
 
     @staticmethod
     def from_flat(data, rows, cols):
-        m = Matrix(rows, cols)
-        idx = 0
-        for i in range(rows):
-            for j in range(cols):
-                m.data[i][j] = data[idx]
-                idx += 1
-        return m
+        return Matrix(rows, cols, [
+            data[i * cols:(i + 1) * cols]
+            for i in range(rows)
+        ])
 
 
 # activation functions

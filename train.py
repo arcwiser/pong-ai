@@ -3,6 +3,7 @@ import math
 import random
 import sys
 import time
+import multiprocessing
 
 from nn import NeuralNetwork
 from pong import Pong, H, PADDLE_H
@@ -44,6 +45,12 @@ def evaluate(brain, n_games):
             g.step(a1, a2)
         total += g.hits
     return total / n_games
+
+
+# worker for multiprocessing
+def eval_worker(args):
+    brain, n_games = args
+    return evaluate(brain, n_games)
 
 
 # tournament selection: pick k random, return index of best
@@ -123,56 +130,57 @@ def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
     print()
 
     try:
-        while True:
-            gen += 1
-            fits = []
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+            while True:
+                gen += 1
+                fits = []
 
-            # evaluate every individual in the population
-            for i, brain in enumerate(pop):
-                f = evaluate(brain, gpe)
-                fits.append(f)
+                # evaluate every individual in the population using multiprocessing
+                tasks = [(brain, gpe) for brain in pop]
+                for i, f in enumerate(pool.imap(eval_worker, tasks)):
+                    fits.append(f)
 
-                # progress bar
-                bar = "#" * int((i + 1) / ps * 20) + "." * (20 - int((i + 1) / ps * 20))
-                sys.stdout.write(f"\r  gen {gen:5d} [{bar}]")
+                    # progress bar
+                    bar = "#" * int((i + 1) / ps * 20) + "." * (20 - int((i + 1) / ps * 20))
+                    sys.stdout.write(f"\r  gen {gen:5d} [{bar}]")
+                    sys.stdout.flush()
+
+                # stats for this generation
+                gen_best = max(fits)
+                gen_avg = sum(fits) / len(fits)
+
+                # save if new record
+                if gen_best > best_fit:
+                    best_fit = gen_best
+                    best_brain = pop[fits.index(gen_best)].copy()
+                    if gen % save_every == 0 or gen == 1:
+                        save_brain(best_brain, best_fit, save_path)
+
+                sys.stdout.write(f"\r  gen {gen:5d}  best={gen_best:6.1f}  avg={gen_avg:6.1f}  record={best_fit:6.1f}")
                 sys.stdout.flush()
 
-            # stats for this generation
-            gen_best = max(fits)
-            gen_avg = sum(fits) / len(fits)
+                # show a quick demo game so you can see how its doing
+                if gen % show_every == 0 and best_brain is not None:
+                    hits, s1, s2 = demo_game(best_brain)
+                    sys.stdout.write(f"  demo: {hits} hits ({s1}-{s2})")
+                sys.stdout.write("\n")
 
-            # save if new record
-            if gen_best > best_fit:
-                best_fit = gen_best
-                best_brain = pop[fits.index(gen_best)].copy()
-                if gen % save_every == 0 or gen == 1:
-                    save_brain(best_brain, best_fit, save_path)
+                # keep the elites
+                order = sorted(range(len(fits)), key=lambda i: fits[i], reverse=True)
+                elites = [pop[i].copy() for i in order[:ELITE_COUNT]]
 
-            sys.stdout.write(f"\r  gen {gen:5d}  best={gen_best:6.1f}  avg={gen_avg:6.1f}  record={best_fit:6.1f}")
-            sys.stdout.flush()
+                # breed the rest
+                next_pop = elites[:]
+                while len(next_pop) < ps:
+                    p1 = pop[tourney_select(fits, TOURNEY_K)]
+                    p2 = pop[tourney_select(fits, TOURNEY_K)]
+                    child_params = crossover(p1.get_params(), p2.get_params())
+                    child_params = mutate(child_params)
+                    child = NeuralNetwork(layer_sizes)
+                    child.set_params(child_params)
+                    next_pop.append(child)
 
-            # show a quick demo game so you can see how its doing
-            if gen % show_every == 0 and best_brain is not None:
-                hits, s1, s2 = demo_game(best_brain)
-                sys.stdout.write(f"  demo: {hits} hits ({s1}-{s2})")
-            sys.stdout.write("\n")
-
-            # keep the elites
-            order = sorted(range(len(fits)), key=lambda i: fits[i], reverse=True)
-            elites = [pop[i].copy() for i in order[:ELITE_COUNT]]
-
-            # breed the rest
-            next_pop = elites[:]
-            while len(next_pop) < ps:
-                p1 = pop[tourney_select(fits, TOURNEY_K)]
-                p2 = pop[tourney_select(fits, TOURNEY_K)]
-                child_params = crossover(p1.get_params(), p2.get_params())
-                child_params = mutate(child_params)
-                child = NeuralNetwork(layer_sizes)
-                child.set_params(child_params)
-                next_pop.append(child)
-
-            pop = next_pop
+                pop = next_pop
 
     except KeyboardInterrupt:
         print(f"\n\nstopped at gen {gen}. best fitness: {best_fit:.1f}")
