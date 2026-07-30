@@ -1,0 +1,182 @@
+import json
+import math
+import random
+import sys
+import time
+
+from nn import NeuralNetwork
+from pong import Pong, H, PADDLE_H
+
+# ga defaults - tweak these if you want
+POP_SIZE = 80
+GAMES_PER_EVAL = 2
+MAX_STEPS = 600
+ELITE_COUNT = 4
+TOURNEY_K = 4
+MUT_RATE = 0.15
+MUT_SCALE = 0.2
+XOVER_RATE = 0.7
+
+
+# simple AI that just follows the ball's y position
+def simple_ai(ball_y, paddle_y):
+    diff = ball_y - paddle_y
+    if abs(diff) < 0.8:
+        return 0
+    return 1 if diff > 0 else -1
+
+
+# turn NN output into a pong action
+def brain_action(brain, state):
+    out = brain.forward(state)
+    return 1 if out[0] > 0.5 else -1
+
+
+# play n games and return avg hits (fitness)
+def evaluate(brain, n_games):
+    total = 0
+    for _ in range(n_games):
+        g = Pong()
+        while not g.done and g.steps < MAX_STEPS:
+            s = g.get_state(for_player=2)
+            a2 = brain_action(brain, s)
+            a1 = simple_ai(g.ball_y, g.paddle1_y)
+            g.step(a1, a2)
+        total += g.hits
+    return total / n_games
+
+
+# tournament selection: pick k random, return index of best
+def tourney_select(fitnesses, k):
+    best = None
+    for _ in range(k):
+        idx = random.randint(0, len(fitnesses) - 1)
+        if best is None or fitnesses[idx] > fitnesses[best]:
+            best = idx
+    return best
+
+
+# simple 1-point crossover
+def crossover(p1, p2):
+    if random.random() < XOVER_RATE:
+        pt = random.randint(0, len(p1) - 1)
+        return p1[:pt] + p2[pt:]
+    return p1[:]
+
+
+# gaussian mutation
+def mutate(params):
+    return [p + random.gauss(0, MUT_SCALE) if random.random() < MUT_RATE else p for p in params]
+
+
+# save brain to json
+def save_brain(brain, fitness, path="best_brain.json"):
+    with open(path, "w") as f:
+        json.dump({
+            "layer_sizes": brain.layer_sizes,
+            "params": brain.get_params(),
+            "fitness": round(fitness, 2),
+        }, f)
+
+
+# load brain from json
+def load_brain(path="best_brain.json"):
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        b = NeuralNetwork(d["layer_sizes"])
+        b.set_params(d["params"])
+        return b
+    except:
+        return None  # file not found or whatever
+
+
+# run 1 quick game and return stats (no rendering)
+def demo_game(brain):
+    g = Pong()
+    while not g.done and g.steps < 300:
+        s = g.get_state(for_player=2)
+        a2 = brain_action(brain, s)
+        a1 = simple_ai(g.ball_y, g.paddle1_y)
+        g.step(a1, a2)
+    return g.hits, g.score1, g.score2
+
+
+# main training loop - runs forever until ctrl+c
+def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
+                     show_every=5, save_every=10, save_path="best_brain.json",
+                     seed=None):
+    if seed is not None:
+        random.seed(seed)
+
+    ps = pop_size or POP_SIZE
+    gpe = games_per_eval or GAMES_PER_EVAL
+
+    # create initial population
+    pop = [NeuralNetwork(layer_sizes) for _ in range(ps)]
+    best_fit = 0.0
+    best_brain = None
+    gen = 0
+
+    print("training pong ai with neuroevolution (ctrl+c to stop)")
+    print(f"  pop={ps}  net={layer_sizes}  mut_rate={MUT_RATE}  mut_scale={MUT_SCALE}")
+    print()
+
+    try:
+        while True:
+            gen += 1
+            fits = []
+
+            # evaluate every individual in the population
+            for i, brain in enumerate(pop):
+                f = evaluate(brain, gpe)
+                fits.append(f)
+
+                # progress bar
+                bar = "#" * int((i + 1) / ps * 20) + "." * (20 - int((i + 1) / ps * 20))
+                sys.stdout.write(f"\r  gen {gen:5d} [{bar}]")
+                sys.stdout.flush()
+
+            # stats for this generation
+            gen_best = max(fits)
+            gen_avg = sum(fits) / len(fits)
+
+            # save if new record
+            if gen_best > best_fit:
+                best_fit = gen_best
+                best_brain = pop[fits.index(gen_best)].copy()
+                if gen % save_every == 0 or gen == 1:
+                    save_brain(best_brain, best_fit, save_path)
+
+            sys.stdout.write(f"\r  gen {gen:5d}  best={gen_best:6.1f}  avg={gen_avg:6.1f}  record={best_fit:6.1f}")
+            sys.stdout.flush()
+
+            # show a quick demo game so you can see how its doing
+            if gen % show_every == 0 and best_brain is not None:
+                hits, s1, s2 = demo_game(best_brain)
+                sys.stdout.write(f"  demo: {hits} hits ({s1}-{s2})")
+            sys.stdout.write("\n")
+
+            # keep the elites
+            order = sorted(range(len(fits)), key=lambda i: fits[i], reverse=True)
+            elites = [pop[i].copy() for i in order[:ELITE_COUNT]]
+
+            # breed the rest
+            next_pop = elites[:]
+            while len(next_pop) < ps:
+                p1 = pop[tourney_select(fits, TOURNEY_K)]
+                p2 = pop[tourney_select(fits, TOURNEY_K)]
+                child_params = crossover(p1.get_params(), p2.get_params())
+                child_params = mutate(child_params)
+                child = NeuralNetwork(layer_sizes)
+                child.set_params(child_params)
+                next_pop.append(child)
+
+            pop = next_pop
+
+    except KeyboardInterrupt:
+        print(f"\n\nstopped at gen {gen}. best fitness: {best_fit:.1f}")
+        if best_brain is not None:
+            save_brain(best_brain, best_fit, save_path)
+            print(f"saved best brain to {save_path}")
+        return best_brain, best_fit
