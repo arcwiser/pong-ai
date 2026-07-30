@@ -210,6 +210,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import os
+    os.system("") # enables ANSI escape codes on older windows terminals
     import multiprocessing
     multiprocessing.freeze_support()
     main()

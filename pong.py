@@ -119,8 +119,8 @@ class Pong:
 
     # draw the game in the terminal with colors
     def render(self):
-        import os
-        os.system("cls" if os.name == "nt" else "clear")
+        # Move cursor to top-left instead of full clear to prevent flickering
+        print("\033[H", end="")
         
         # ANSI Colors
         C_RESET = "\033[0m"

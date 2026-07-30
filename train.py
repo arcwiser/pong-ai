@@ -65,11 +65,10 @@ def tourney_select(fitnesses, k):
     return best
 
 
-# simple 1-point crossover
+# uniform crossover - mathematically much better for neural network breeding
 def crossover(p1, p2):
     if random.random() < XOVER_RATE:
-        pt = random.randint(0, len(p1) - 1)
-        return p1[:pt] + p2[pt:]
+        return [a if random.random() < 0.5 else b for a, b in zip(p1, p2)]
     return p1[:]
 
 
