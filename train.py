@@ -33,7 +33,7 @@ def brain_action(brain, state):
     return 1 if out[0] > 0.5 else -1
 
 
-# play n games and return avg hits (fitness)
+# play n games and return avg fitness
 def evaluate(brain, n_games):
     total = 0
     for _ in range(n_games):
@@ -43,7 +43,8 @@ def evaluate(brain, n_games):
             a2 = brain_action(brain, s)
             a1 = simple_ai(g.ball_y, g.paddle1_y)
             g.step(a1, a2)
-        total += g.hits
+        # better fitness: reward hits, heavily reward scoring, penalize conceding
+        total += (g.hits * 10) + (g.score2 * 100) - (g.score1 * 10)
     return total / n_games
 
 

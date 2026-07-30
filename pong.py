@@ -114,29 +114,37 @@ class Pong:
         else:
             self.ball_dx = -abs(self.ball_dx)
 
-    # draw the game in the terminal
+    # draw the game in the terminal with colors
     def render(self):
         import os
         os.system("cls" if os.name == "nt" else "clear")
-        print("+" + "-" * W + "+")
+        
+        # ANSI Colors
+        C_RESET = "\033[0m"
+        C_P1 = "\033[94m" # Blue
+        C_P2 = "\033[91m" # Red
+        C_BALL = "\033[92m" # Green
+        C_BORDER = "\033[90m" # Gray
+        
+        print(f"{C_BORDER}+{'-' * W}+{C_RESET}")
         for y in range(H):
-            line = "|"
+            line = f"{C_BORDER}|{C_RESET}"
             for x in range(W):
                 ch = " "
                 # left paddle
                 if x == 1 and abs(y - self.paddle1_y) <= PADDLE_H / 2:
-                    ch = "#"
+                    ch = f"{C_P1}#{C_RESET}"
                 # right paddle
                 elif x == W - 2 and abs(y - self.paddle2_y) <= PADDLE_H / 2:
-                    ch = "#"
+                    ch = f"{C_P2}#{C_RESET}"
                 # ball
                 elif abs(x - self.ball_x) < 0.6 and abs(y - self.ball_y) < 0.6:
-                    ch = "O"
+                    ch = f"{C_BALL}O{C_RESET}"
                 # center line
                 elif x == W // 2 and y % 2 == 0:
-                    ch = "|"
+                    ch = f"{C_BORDER}|{C_RESET}"
                 line += ch
-            line += "|"
+            line += f"{C_BORDER}|{C_RESET}"
             print(line)
-        print("+" + "-" * W + "+")
-        print(f"  {self.score1} - {self.score2}   hits: {self.hits}")
+        print(f"{C_BORDER}+{'-' * W}+{C_RESET}")
+        print(f"  {C_P1}P1: {self.score1}{C_RESET}   -   {C_P2}P2: {self.score2}{C_RESET}   (hits: {self.hits})")

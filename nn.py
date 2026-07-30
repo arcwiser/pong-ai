@@ -74,11 +74,8 @@ class Matrix:
 
 # activation functions
 def sigmoid(x):
-    if x < -20:
-        return 0.0
-    if x > 20:
-        return 1.0
-    return 1.0 / (1.0 + math.exp(-x))
+    # Fast algebraic approximation of sigmoid
+    return 0.5 * (x / (1.0 + abs(x))) + 0.5
 
 def tanh(x):
     return math.tanh(x)
