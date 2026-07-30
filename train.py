@@ -6,7 +6,7 @@ import time
 import multiprocessing
 
 from nn import NeuralNetwork
-from pong import Pong, H, PADDLE_H
+from pong import Pong, H, W
 
 # ga defaults - tweak these if you want
 POP_SIZE = 80
@@ -18,27 +18,39 @@ MUT_RATE = 0.15
 MUT_SCALE = 0.2
 XOVER_RATE = 0.7
 
-
-# Inlined logic for performance instead of external function calls
+# cache random functions as locals for speed in tight loops
+_random = random.random
+_gauss = random.gauss
+_randint = random.randint
 
 
 # play n games and return avg fitness
+# everything is inlined here for maximum speed in the hot loop
 def evaluate(brain, n_games, fps=25.0):
-    speed_mult = fps / 25.0
+    speed_mult = fps * 0.04  # same as fps / 25.0 but avoids division
+    bs = 0.9 * speed_mult
+    ps = 0.6 * speed_mult
     total = 0
+    forward = brain.forward  # cache method lookup
     for _ in range(n_games):
-        g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
+        g = Pong(ball_speed=bs, paddle_speed=ps)
+        step = g.step  # cache method lookup
+        get_state = g.get_state
         while not g.done and g.steps < MAX_STEPS:
-            s = g.get_state(for_player=2)
-            # inline brain action
-            out = brain.forward(s)
+            s = get_state(2)
+            out = forward(s)
             a2 = 1 if out[0] > 0.5 else -1
             # inline simple AI
             diff = g.ball_y - g.paddle1_y
-            a1 = 0 if abs(diff) < 0.8 else (1 if diff > 0 else -1)
-            g.step(a1, a2)
+            if diff > 0.8:
+                a1 = 1
+            elif diff < -0.8:
+                a1 = -1
+            else:
+                a1 = 0
+            step(a1, a2)
         # better fitness: reward hits, heavily reward scoring, penalize conceding
-        total += (g.hits * 10) + (g.score2 * 100) - (g.score1 * 10)
+        total += g.hits * 10 + g.score2 * 100 - g.score1 * 10
     return total / n_games
 
 
@@ -51,8 +63,10 @@ def eval_worker(args):
 # tournament selection: pick k random, return index of best
 def tourney_select(fitnesses, k):
     best = None
+    randint = _randint
+    n = len(fitnesses) - 1
     for _ in range(k):
-        idx = random.randint(0, len(fitnesses) - 1)
+        idx = randint(0, n)
         if best is None or fitnesses[idx] > fitnesses[best]:
             best = idx
     return best
@@ -60,14 +74,19 @@ def tourney_select(fitnesses, k):
 
 # uniform crossover - mathematically much better for neural network breeding
 def crossover(p1, p2):
-    if random.random() < XOVER_RATE:
-        return [a if random.random() < 0.5 else b for a, b in zip(p1, p2)]
+    if _random() < XOVER_RATE:
+        r = _random
+        return [a if r() < 0.5 else b for a, b in zip(p1, p2)]
     return p1[:]
 
 
 # gaussian mutation
 def mutate(params):
-    return [p + random.gauss(0, MUT_SCALE) if random.random() < MUT_RATE else p for p in params]
+    r = _random
+    g = _gauss
+    rate = MUT_RATE
+    scale = MUT_SCALE
+    return [p + g(0, scale) if r() < rate else p for p in params]
 
 
 # save brain to json
@@ -94,15 +113,23 @@ def load_brain(path="best_brain.json"):
 
 # run 1 quick game and return stats (no rendering)
 def demo_game(brain, fps=25.0):
-    speed_mult = fps / 25.0
+    speed_mult = fps * 0.04
     g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
+    forward = brain.forward
+    step = g.step
+    get_state = g.get_state
     while not g.done and g.steps < 300:
-        s = g.get_state(for_player=2)
-        out = brain.forward(s)
+        s = get_state(2)
+        out = forward(s)
         a2 = 1 if out[0] > 0.5 else -1
         diff = g.ball_y - g.paddle1_y
-        a1 = 0 if abs(diff) < 0.8 else (1 if diff > 0 else -1)
-        g.step(a1, a2)
+        if diff > 0.8:
+            a1 = 1
+        elif diff < -0.8:
+            a1 = -1
+        else:
+            a1 = 0
+        step(a1, a2)
     return g.hits, g.score1, g.score2
 
 
@@ -135,25 +162,29 @@ def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
         best_brain = None
 
     gen = 0
+    cpu_count = multiprocessing.cpu_count()
 
     print("training pong ai with neuroevolution (ctrl+c to stop)")
     print(f"  pop={ps}  net={layer_sizes}  mut_rate={MUT_RATE}  mut_scale={MUT_SCALE}")
+    print(f"  using {cpu_count} cpu cores")
     print()
 
     try:
-        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        with multiprocessing.Pool(processes=cpu_count) as pool:
             while True:
                 gen += 1
                 fits = []
 
                 # evaluate every individual in the population using multiprocessing
                 tasks = [(brain, gpe, fps) for brain in pop]
-                chunk_size = max(1, len(tasks) // multiprocessing.cpu_count())
+                chunk_size = max(1, ps // cpu_count)
                 for i, f in enumerate(pool.imap(eval_worker, tasks, chunksize=chunk_size)):
                     fits.append(f)
 
                     # progress bar
-                    bar = "#" * int((i + 1) / ps * 20) + "." * (20 - int((i + 1) / ps * 20))
+                    pct = (i + 1) / ps
+                    done = int(pct * 20)
+                    bar = "#" * done + "." * (20 - done)
                     sys.stdout.write(f"\r  gen {gen:5d} [{bar}]")
                     sys.stdout.flush()
 

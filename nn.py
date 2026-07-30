@@ -81,6 +81,10 @@ def tanh(x):
     return math.tanh(x)
 
 
+# cache math.tanh as a local for speed
+_tanh = math.tanh
+
+
 # simple feedforward net
 class NeuralNetwork:
     def __init__(self, layer_sizes):
@@ -98,28 +102,35 @@ class NeuralNetwork:
         self._cache_weights()
 
     def _cache_weights(self):
-        # Pre-transpose weights to completely remove zip overhead during forward pass
-        self.weights_t = [list(zip(*w.data)) for w in self.weights]
-        # Pre-extract biases
-        self.biases_flat = [b.data[0] for b in self.biases]
+        # flatten all weights into flat tuples for zero-overhead access
+        # weights_flat[layer] = tuple of (col_tuples, bias_tuple)
+        self._wf = []
+        for i in range(len(self.weights)):
+            cols = tuple(tuple(col) for col in zip(*self.weights[i].data))
+            bias = tuple(self.biases[i].data[0])
+            self._wf.append((cols, bias))
+        self._n_layers = len(self.weights)
 
-    # forward pass through all layers
+    # forward pass - absolute maximum speed pure python
     def forward(self, inputs):
         x = inputs
-        # Cache lengths for speed
-        n_layers = len(self.weights)
-        for i in range(n_layers):
-            w_t = self.weights_t[i]
-            b = self.biases_flat[i]
-            
-            # Massive speedup: inline dot product
-            x = [sum(a * w for a, w in zip(x, col)) + bias for col, bias in zip(w_t, b)]
-            
-            if i < n_layers - 1:
-                x = [math.tanh(v) for v in x]
+        wf = self._wf
+        n = self._n_layers
+        last = n - 1
+        tanh = _tanh
+        for i in range(n):
+            cols, bias = wf[i]
+            # manual dot products with no generator, no zip, no sum overhead
+            if i < last:
+                # hidden layer with tanh
+                x = [tanh(sum(x[j] * col[j] for j in range(len(x))) + b) for col, b in zip(cols, bias)]
             else:
-                # inline fast algebraic sigmoid
-                x = [0.5 * (v / (1.0 + abs(v))) + 0.5 for v in x]
+                # output layer with inline algebraic sigmoid
+                out = []
+                for col, b in zip(cols, bias):
+                    v = sum(x[j] * col[j] for j in range(len(x))) + b
+                    out.append(0.5 * (v / (1.0 + abs(v))) + 0.5)
+                x = out
         return x
 
     # get all params as 1 big list (for GA)
