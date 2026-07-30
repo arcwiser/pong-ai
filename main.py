@@ -95,6 +95,7 @@ def do_demo(args):
 
 def interactive_menu():
     import argparse
+    current_fps = 25.0
     while True:
         print("\n=======================")
         print("       PONG AI         ")
@@ -103,6 +104,7 @@ def interactive_menu():
         print("2. Watch AI vs AI")
         print("3. Play vs AI")
         print("4. Demo (Quick simulation)")
+        print("5. Settings")
         print("q. Quit")
         choice = input("Select an option: ").strip().lower()
 
@@ -119,17 +121,28 @@ def interactive_menu():
         elif choice == '2':
             sp = argparse.ArgumentParser()
             sp.add_argument("--load", default="best_brain.json")
-            sp.add_argument("--fps", type=float, default=25.0)
+            sp.add_argument("--fps", type=float, default=current_fps)
             do_watch(sp.parse_args([]))
         elif choice == '3':
             sp = argparse.ArgumentParser()
             sp.add_argument("--load", default="best_brain.json")
-            sp.add_argument("--fps", type=float, default=25.0)
+            sp.add_argument("--fps", type=float, default=current_fps)
             do_play(sp.parse_args([]))
         elif choice == '4':
             sp = argparse.ArgumentParser()
             sp.add_argument("--load", default="best_brain.json")
             do_demo(sp.parse_args([]))
+        elif choice == '5':
+            print(f"\nCurrent Game Speed (FPS): {current_fps}")
+            try:
+                new_fps = float(input("Enter new game speed (e.g., 25 for normal, 60 for fast): "))
+                if new_fps > 0:
+                    current_fps = new_fps
+                    print(f"Speed updated to {current_fps} FPS.")
+                else:
+                    print("Speed must be greater than 0.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
         elif choice == 'q':
             break
         else:
