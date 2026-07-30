@@ -14,6 +14,8 @@ class Pong:
     def __init__(self, ball_speed=0.9, paddle_speed=0.6):
         self.ball_speed = ball_speed
         self.paddle_speed = paddle_speed
+        self.paddle_min = PADDLE_H / 2
+        self.paddle_max = H - PADDLE_H / 2
         self.reset()
 
     def reset(self):
@@ -57,8 +59,8 @@ class Pong:
         self.paddle1_y += action1 * self.paddle_speed
         self.paddle2_y += action2 * self.paddle_speed
         # keep paddles in bounds
-        self.paddle1_y = max(PADDLE_H / 2, min(H - PADDLE_H / 2, self.paddle1_y))
-        self.paddle2_y = max(PADDLE_H / 2, min(H - PADDLE_H / 2, self.paddle2_y))
+        self.paddle1_y = max(self.paddle_min, min(self.paddle_max, self.paddle1_y))
+        self.paddle2_y = max(self.paddle_min, min(self.paddle_max, self.paddle2_y))
 
         # move ball
         self.ball_x += self.ball_dx

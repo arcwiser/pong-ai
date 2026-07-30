@@ -5,7 +5,7 @@ import time
 
 from nn import NeuralNetwork
 from pong import Pong
-from train import continuous_train, simple_ai, brain_action, POP_SIZE
+from train import continuous_train, POP_SIZE
 
 
 def do_train(args):
@@ -36,8 +36,10 @@ def do_watch(args):
             g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
             while not g.done:
                 s = g.get_state(for_player=2)
-                a2 = brain_action(brain, s)
-                a1 = simple_ai(g.ball_y, g.paddle1_y)
+                out = brain.forward(s)
+                a2 = 1 if out[0] > 0.5 else -1
+                diff = g.ball_y - g.paddle1_y
+                a1 = 0 if abs(diff) < 0.8 else (1 if diff > 0 else -1)
                 g.step(a1, a2)
                 g.render()
                 time.sleep(1.0 / args.fps)
@@ -67,7 +69,8 @@ def do_play(args):
     try:
         while not g.done:
             s = g.get_state(for_player=2)
-            a2 = brain_action(brain, s)
+            out = brain.forward(s)
+            a2 = 1 if out[0] > 0.5 else -1
             a1 = 0
             if msvcrt.kbhit():
                 k = msvcrt.getch().decode().lower()

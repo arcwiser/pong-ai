@@ -19,18 +19,7 @@ MUT_SCALE = 0.2
 XOVER_RATE = 0.7
 
 
-# simple AI that just follows the ball's y position
-def simple_ai(ball_y, paddle_y):
-    diff = ball_y - paddle_y
-    if abs(diff) < 0.8:
-        return 0
-    return 1 if diff > 0 else -1
-
-
-# turn NN output into a pong action
-def brain_action(brain, state):
-    out = brain.forward(state)
-    return 1 if out[0] > 0.5 else -1
+# Inlined logic for performance instead of external function calls
 
 
 # play n games and return avg fitness
@@ -41,8 +30,12 @@ def evaluate(brain, n_games, fps=25.0):
         g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
         while not g.done and g.steps < MAX_STEPS:
             s = g.get_state(for_player=2)
-            a2 = brain_action(brain, s)
-            a1 = simple_ai(g.ball_y, g.paddle1_y)
+            # inline brain action
+            out = brain.forward(s)
+            a2 = 1 if out[0] > 0.5 else -1
+            # inline simple AI
+            diff = g.ball_y - g.paddle1_y
+            a1 = 0 if abs(diff) < 0.8 else (1 if diff > 0 else -1)
             g.step(a1, a2)
         # better fitness: reward hits, heavily reward scoring, penalize conceding
         total += (g.hits * 10) + (g.score2 * 100) - (g.score1 * 10)
@@ -105,8 +98,10 @@ def demo_game(brain, fps=25.0):
     g = Pong(ball_speed=0.9 * speed_mult, paddle_speed=0.6 * speed_mult)
     while not g.done and g.steps < 300:
         s = g.get_state(for_player=2)
-        a2 = brain_action(brain, s)
-        a1 = simple_ai(g.ball_y, g.paddle1_y)
+        out = brain.forward(s)
+        a2 = 1 if out[0] > 0.5 else -1
+        diff = g.ball_y - g.paddle1_y
+        a1 = 0 if abs(diff) < 0.8 else (1 if diff > 0 else -1)
         g.step(a1, a2)
     return g.hits, g.score1, g.score2
 
