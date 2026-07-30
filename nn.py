@@ -95,20 +95,31 @@ class NeuralNetwork:
             b.randomize(scale=0.1)
             self.weights.append(w)
             self.biases.append(b)
+        self._cache_weights()
+
+    def _cache_weights(self):
+        # Pre-transpose weights to completely remove zip overhead during forward pass
+        self.weights_t = [list(zip(*w.data)) for w in self.weights]
+        # Pre-extract biases
+        self.biases_flat = [b.data[0] for b in self.biases]
 
     # forward pass through all layers
     def forward(self, inputs):
         x = inputs
-        for i in range(len(self.weights)):
-            w_t = list(zip(*self.weights[i].data))
-            b = self.biases[i].data[0]
+        # Cache lengths for speed
+        n_layers = len(self.weights)
+        for i in range(n_layers):
+            w_t = self.weights_t[i]
+            b = self.biases_flat[i]
             
+            # Massive speedup: inline dot product
             x = [sum(a * w for a, w in zip(x, col)) + bias for col, bias in zip(w_t, b)]
             
-            if i < len(self.weights) - 1:
+            if i < n_layers - 1:
                 x = [math.tanh(v) for v in x]
             else:
-                x = [sigmoid(v) for v in x]
+                # inline fast algebraic sigmoid
+                x = [0.5 * (v / (1.0 + abs(v))) + 0.5 for v in x]
         return x
 
     # get all params as 1 big list (for GA)
@@ -135,6 +146,7 @@ class NeuralNetwork:
             size = rows * cols
             self.biases[i] = Matrix.from_flat(params[idx:idx + size], rows, cols)
             idx += size
+        self._cache_weights()
 
     # makes a copy with same weights
     def copy(self):

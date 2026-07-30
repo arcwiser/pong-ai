@@ -77,6 +77,10 @@ class Pong:
             self.ball_dx = abs(self.ball_dx)
             self.ball_dy += random.uniform(-0.2, 0.2)
             self.ball_x = 2
+            # normalize speed only when changed
+            speed = math.sqrt(self.ball_dx ** 2 + self.ball_dy ** 2)
+            self.ball_dx = self.ball_dx / speed * self.ball_speed
+            self.ball_dy = self.ball_dy / speed * self.ball_speed
 
         # check paddle 2 hit (right side)
         if self.ball_x >= W - 2 and self.ball_dx > 0 and abs(self.ball_y - self.paddle2_y) <= PADDLE_H / 2:
@@ -84,11 +88,10 @@ class Pong:
             self.ball_dy += random.uniform(-0.2, 0.2)
             self.ball_x = W - 2
             self.hits += 1  # track how many returns player 2 does
-
-        # keep ball speed constant (normalize)
-        speed = math.sqrt(self.ball_dx ** 2 + self.ball_dy ** 2)
-        self.ball_dx = self.ball_dx / speed * self.ball_speed
-        self.ball_dy = self.ball_dy / speed * self.ball_speed
+            # normalize speed only when changed
+            speed = math.sqrt(self.ball_dx ** 2 + self.ball_dy ** 2)
+            self.ball_dx = self.ball_dx / speed * self.ball_speed
+            self.ball_dy = self.ball_dy / speed * self.ball_speed
 
         # check if someone scored
         if self.ball_x < 0:
