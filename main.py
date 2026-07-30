@@ -93,12 +93,52 @@ def do_demo(args):
     print(f"demo: {hits} hits, score {s1}-{s2}")
 
 
+def interactive_menu():
+    import argparse
+    while True:
+        print("\n=======================")
+        print("       PONG AI         ")
+        print("=======================")
+        print("1. Train AI")
+        print("2. Watch AI vs AI")
+        print("3. Play vs AI")
+        print("4. Demo (Quick simulation)")
+        print("q. Quit")
+        choice = input("Select an option: ").strip().lower()
+
+        if choice == '1':
+            sp = argparse.ArgumentParser()
+            sp.add_argument("--pop", type=int, default=POP_SIZE)
+            sp.add_argument("--hidden", type=int, default=10)
+            sp.add_argument("--games", type=int, default=2)
+            sp.add_argument("--show", type=int, default=5)
+            sp.add_argument("--save-every", type=int, default=10)
+            sp.add_argument("--save", default="best_brain.json")
+            sp.add_argument("--seed", type=int, default=None)
+            do_train(sp.parse_args([]))
+        elif choice == '2':
+            sp = argparse.ArgumentParser()
+            sp.add_argument("--load", default="best_brain.json")
+            sp.add_argument("--fps", type=float, default=25.0)
+            do_watch(sp.parse_args([]))
+        elif choice == '3':
+            sp = argparse.ArgumentParser()
+            sp.add_argument("--load", default="best_brain.json")
+            sp.add_argument("--fps", type=float, default=25.0)
+            do_play(sp.parse_args([]))
+        elif choice == '4':
+            sp = argparse.ArgumentParser()
+            sp.add_argument("--load", default="best_brain.json")
+            do_demo(sp.parse_args([]))
+        elif choice == 'q':
+            break
+        else:
+            print("Invalid option.")
+
 def main():
     p = argparse.ArgumentParser(description="scratch pong - nn from scratch")
-
-    # kinda janky but works for switching subcommands
     if len(sys.argv) < 2:
-        p.print_help()
+        interactive_menu()
         return
 
     cmd = sys.argv[1]
@@ -138,4 +178,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()

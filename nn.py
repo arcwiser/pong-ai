@@ -101,14 +101,18 @@ class NeuralNetwork:
 
     # forward pass through all layers
     def forward(self, inputs):
-        x = Matrix.from_list(inputs)
+        x = inputs
         for i in range(len(self.weights)):
-            x = (x @ self.weights[i]) + self.biases[i]
+            w_t = list(zip(*self.weights[i].data))
+            b = self.biases[i].data[0]
+            
+            x = [sum(a * w for a, w in zip(x, col)) + bias for col, bias in zip(w_t, b)]
+            
             if i < len(self.weights) - 1:
-                x = x.apply(tanh)  # hidden layers use tanh
+                x = [math.tanh(v) for v in x]
             else:
-                x = x.apply(sigmoid)  # output uses sigmoid (binary)
-        return x.to_list()
+                x = [sigmoid(v) for v in x]
+        return x
 
     # get all params as 1 big list (for GA)
     def get_params(self):
