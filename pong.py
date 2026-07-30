@@ -11,7 +11,9 @@ WIN_SCORE = 11
 
 
 class Pong:
-    def __init__(self):
+    def __init__(self, ball_speed=0.9, paddle_speed=0.6):
+        self.ball_speed = ball_speed
+        self.paddle_speed = paddle_speed
         self.reset()
 
     def reset(self):
@@ -20,8 +22,8 @@ class Pong:
         self.ball_y = H / 2.0
         # random angle for serve
         angle = random.uniform(-math.pi / 4, math.pi / 4)
-        self.ball_dx = math.cos(angle) * BALL_SPEED
-        self.ball_dy = math.sin(angle) * BALL_SPEED
+        self.ball_dx = math.cos(angle) * self.ball_speed
+        self.ball_dy = math.sin(angle) * self.ball_speed
         # paddles start in the middle
         self.paddle1_y = H / 2.0
         self.paddle2_y = H / 2.0
@@ -42,8 +44,8 @@ class Pong:
 
         return [
             (self.ball_y - py) / H,
-            self.ball_dy / BALL_SPEED,
-            bdx / BALL_SPEED,
+            self.ball_dy / self.ball_speed,
+            bdx / self.ball_speed,
             self.ball_x / W,
         ]
 
@@ -52,8 +54,8 @@ class Pong:
         self.steps += 1
 
         # move paddles
-        self.paddle1_y += action1 * PADDLE_SPEED
-        self.paddle2_y += action2 * PADDLE_SPEED
+        self.paddle1_y += action1 * self.paddle_speed
+        self.paddle2_y += action2 * self.paddle_speed
         # keep paddles in bounds
         self.paddle1_y = max(PADDLE_H / 2, min(H - PADDLE_H / 2, self.paddle1_y))
         self.paddle2_y = max(PADDLE_H / 2, min(H - PADDLE_H / 2, self.paddle2_y))
@@ -85,8 +87,8 @@ class Pong:
 
         # keep ball speed constant (normalize)
         speed = math.sqrt(self.ball_dx ** 2 + self.ball_dy ** 2)
-        self.ball_dx = self.ball_dx / speed * BALL_SPEED
-        self.ball_dy = self.ball_dy / speed * BALL_SPEED
+        self.ball_dx = self.ball_dx / speed * self.ball_speed
+        self.ball_dy = self.ball_dy / speed * self.ball_speed
 
         # check if someone scored
         if self.ball_x < 0:
@@ -105,8 +107,8 @@ class Pong:
         self.ball_x = W / 2.0
         self.ball_y = H / 2.0
         angle = random.uniform(-math.pi / 4, math.pi / 4)
-        self.ball_dx = math.cos(angle) * BALL_SPEED
-        self.ball_dy = math.sin(angle) * BALL_SPEED
+        self.ball_dx = math.cos(angle) * self.ball_speed
+        self.ball_dy = math.sin(angle) * self.ball_speed
         if serve_right:
             self.ball_dx = abs(self.ball_dx)
         else:

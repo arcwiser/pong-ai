@@ -38,7 +38,7 @@ def do_watch(args):
                 a1 = simple_ai(g.ball_y, g.paddle1_y)
                 g.step(a1, a2)
                 g.render()
-                time.sleep(0.04)
+                time.sleep(1.0 / args.fps)
             time.sleep(1.5)
     except KeyboardInterrupt:
         print("\ndone")
@@ -76,7 +76,7 @@ def do_play(args):
                     break
             g.step(a1, a2)
             g.render()
-            time.sleep(0.04)
+            time.sleep(1.0 / args.fps)
     except KeyboardInterrupt:
         pass
 
@@ -118,11 +118,13 @@ def main():
     elif cmd == "watch":
         sp = argparse.ArgumentParser()
         sp.add_argument("--load", default="best_brain.json")
+        sp.add_argument("--fps", type=float, default=25.0)
         do_watch(sp.parse_args(rest))
 
     elif cmd == "play":
         sp = argparse.ArgumentParser()
         sp.add_argument("--load", default="best_brain.json")
+        sp.add_argument("--fps", type=float, default=25.0)
         do_play(sp.parse_args(rest))
 
     elif cmd == "demo":

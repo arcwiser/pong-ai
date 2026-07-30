@@ -119,10 +119,24 @@ def continuous_train(layer_sizes, pop_size=None, games_per_eval=None,
     ps = pop_size or POP_SIZE
     gpe = games_per_eval or GAMES_PER_EVAL
 
-    # create initial population
-    pop = [NeuralNetwork(layer_sizes) for _ in range(ps)]
-    best_fit = 0.0
-    best_brain = None
+    # try to load existing brain to pick up where we left off
+    saved_brain = load_brain(save_path)
+    if saved_brain:
+        print(f"loaded existing brain from {save_path}, resuming training...")
+        pop = [saved_brain.copy()]
+        # seed rest of pop with mutations of saved brain
+        for _ in range(ps - 1):
+            child = NeuralNetwork(layer_sizes)
+            child.set_params(mutate(saved_brain.get_params()))
+            pop.append(child)
+        best_brain = saved_brain
+        best_fit = 0.0
+    else:
+        # create initial population
+        pop = [NeuralNetwork(layer_sizes) for _ in range(ps)]
+        best_fit = 0.0
+        best_brain = None
+
     gen = 0
 
     print("training pong ai with neuroevolution (ctrl+c to stop)")
